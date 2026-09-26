@@ -1,17 +1,26 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 )
 
-func countFile(fp string) error {
+func countFile(fp string) (int, error) {
 	file, err := os.Open(fp)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer file.Close()
-	return nil
+	scanner := bufio.NewScanner(file)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	return lineCount, nil
 }
 
 func main() {
@@ -22,11 +31,11 @@ func main() {
 	}
 
 	for _, arg := range args[1:] {
-		fmt.Println(arg)
-		err := countFile(arg)
+		count, err := countFile(arg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wordcount: %v\n", err)
 			os.Exit(1)
 		}
+		fmt.Printf("%d %s\n", count, arg)
 	}
 }
