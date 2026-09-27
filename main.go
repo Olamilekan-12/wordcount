@@ -15,6 +15,12 @@ type counts struct {
 	Characters int
 }
 
+func (cs *counts) add(other counts) {
+	cs.Lines += other.Lines
+	cs.Words += other.Words
+	cs.Characters += other.Characters
+}
+
 func countFile(fp string) (counts, error) {
 	file, err := os.Open(fp)
 	if err != nil {
@@ -52,20 +58,26 @@ func countFile(fp string) (counts, error) {
 }
 
 func main() {
-	args := os.Args
-	if len(args) <= 1 {
+	filePaths := os.Args[1:]
+	if len(filePaths) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: wordcount <file>")
 		os.Exit(1)
 	}
 	hasFailed := false
-	for _, arg := range args[1:] {
-		c, err := countFile(arg)
+	var total counts
+
+	for _, filePath := range filePaths {
+		c, err := countFile(filePath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wordcount: %v\n", err)
 			hasFailed = true
 			continue
 		}
-		fmt.Printf("%d %d %d %s\n", c.Lines, c.Words, c.Characters, arg)
+		fmt.Printf("%d %d %d %s\n", c.Lines, c.Words, c.Characters, filePath)
+		total.add(c)
+	}
+	if len(filePaths) > 1 {
+		fmt.Printf("%d %d %d total\n", total.Lines, total.Words, total.Characters)
 	}
 	if hasFailed {
 		os.Exit(1)
