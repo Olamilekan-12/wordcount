@@ -9,10 +9,16 @@ import (
 	"unicode"
 )
 
-func countFile(fp string) (int, int, int, error) {
+type counts struct {
+	Lines      int
+	Words      int
+	Characters int
+}
+
+func countFile(fp string) (counts, error) {
 	file, err := os.Open(fp)
 	if err != nil {
-		return 0, 0, 0, err
+		return counts{}, err
 	}
 	defer file.Close()
 	reader := bufio.NewReader(file)
@@ -26,7 +32,7 @@ func countFile(fp string) (int, int, int, error) {
 			break
 		}
 		if err != nil {
-			return 0, 0, 0, err
+			return counts{}, err
 		}
 		characterCount++
 		if r == '\n' {
@@ -38,7 +44,11 @@ func countFile(fp string) (int, int, int, error) {
 		previousWasSpace = unicode.IsSpace(r)
 	}
 
-	return lineCount, wordCount, characterCount, nil
+	return counts{
+		Lines:      lineCount,
+		Words:      wordCount,
+		Characters: characterCount,
+	}, nil
 }
 
 func main() {
@@ -49,11 +59,11 @@ func main() {
 	}
 
 	for _, arg := range args[1:] {
-		lineCount, wordCount, characterCount, err := countFile(arg)
+		c, err := countFile(arg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wordcount: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("%d %d %d %s\n", lineCount, wordCount, characterCount, arg)
+		fmt.Printf("%d %d %d %s\n", c.Lines, c.Words, c.Characters, arg)
 	}
 }
