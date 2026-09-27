@@ -1,6 +1,6 @@
 # wordcount
 
-A small clone of the Unix `wc` command, written in Go. It counts the lines, words, and characters in one or more files.
+A small clone of the Unix `wc` command, written in Go. It counts the lines, words, and characters in files or in standard input.
 
 ## Install
 
@@ -19,23 +19,37 @@ go build
 ## Usage
 
 ```
-wordcount <file> [file...]
+wordcount [-l] [-w] [-m] [file ...]
 ```
 
-Output is one line per file: lines, words, characters, then the file name.
+| Flag | Prints |
+|---|---|
+| `-l` | lines |
+| `-w` | words |
+| `-m` | characters |
+
+With no flags, all three are printed. Columns always appear in the order lines, words, characters, followed by the file name.
 
 ```
-$ wordcount testdata/unicode.txt main.go
+$ wordcount testdata/unicode.txt go.mod
 0 2 7 testdata/unicode.txt
-69 159 1132 main.go
+3 4 53 go.mod
+3 6 60 total
+
+$ wordcount -l -w go.mod
+3 4 go.mod
 ```
 
-If a file can't be opened, it prints an error to stderr and exits with status 1:
+When more than one file is given, a `total` line is printed at the end.
+
+With no files, it reads from standard input:
 
 ```
-$ wordcount nope.txt
-wordcount: open nope.txt: no such file or directory
+$ echo "hello world" | wordcount
+1 2 12
 ```
+
+If a file can't be opened, it prints an error to stderr, carries on with the remaining files, and exits with status 1 at the end.
 
 ## How it counts
 
@@ -45,7 +59,13 @@ The counts match `wc -lwm`:
 - **Words**: runs of non-whitespace characters, where whitespace is anything `unicode.IsSpace` accepts (spaces, tabs, newlines, and so on).
 - **Characters**: Unicode characters (runes), not bytes. `héllo 🚀` is 7 characters but 11 bytes.
 
+## Tests
+
+```sh
+go test ./...
+```
+
 ## Limitations
 
-- No `-l`, `-w`, `-c` flags yet. All three counts are always printed.
-- Can't read from stdin yet.
+- Flags have to be written separately: `-l -w` works but `-lw` doesn't. Go's standard `flag` package doesn't support bundled short flags.
+- No `-c` (byte count).

@@ -3,9 +3,12 @@ package main
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -21,51 +24,90 @@ func (cs *counts) add(other counts) {
 	cs.Characters += other.Characters
 }
 
-func countFile(fp string) (counts, error) {
-	file, err := os.Open(fp)
-	if err != nil {
-		return counts{}, err
-	}
-	defer file.Close()
-	reader := bufio.NewReader(file)
-	lineCount := 0
-	wordCount := 0
-	characterCount := 0
+// countReader counts lines, words, and characters the same way wc -lwm does:
+// a line is a '\n', a word is a run of non-whitespace, a character is a rune.
+func countReader(r io.Reader) (counts, error) {
+	reader := bufio.NewReader(r)
+	var c counts
 	previousWasSpace := true
 	for {
-		r, _, err := reader.ReadRune()
+		ch, _, err := reader.ReadRune()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return counts{}, err
 		}
-		characterCount++
-		if r == '\n' {
-			lineCount++
+		c.Characters++
+		if ch == '\n' {
+			c.Lines++
 		}
-		if !unicode.IsSpace(r) && previousWasSpace {
-			wordCount++
+		isSpace := unicode.IsSpace(ch)
+		if !isSpace && previousWasSpace {
+			c.Words++
 		}
-		previousWasSpace = unicode.IsSpace(r)
+		previousWasSpace = isSpace
 	}
+	return c, nil
+}
 
-	return counts{
-		Lines:      lineCount,
-		Words:      wordCount,
-		Characters: characterCount,
-	}, nil
+func countFile(path string) (counts, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return counts{}, err
+	}
+	defer file.Close()
+	return countReader(file)
+}
+
+// formatCounts builds one output line with only the selected columns.
+// An empty name is left off, which is what wc does for stdin.
+func formatCounts(c counts, name string, lines, words, characters bool) string {
+	var fields []string
+	if lines {
+		fields = append(fields, strconv.Itoa(c.Lines))
+	}
+	if words {
+		fields = append(fields, strconv.Itoa(c.Words))
+	}
+	if characters {
+		fields = append(fields, strconv.Itoa(c.Characters))
+	}
+	if name != "" {
+		fields = append(fields, name)
+	}
+	return strings.Join(fields, " ")
 }
 
 func main() {
-	filePaths := os.Args[1:]
-	if len(filePaths) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: wordcount <file>")
-		os.Exit(1)
+	lines := flag.Bool("l", false, "count lines")
+	words := flag.Bool("w", false, "count words")
+	characters := flag.Bool("m", false, "count characters")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: wordcount [-l] [-w] [-m] [file ...]")
+		flag.PrintDefaults()
 	}
+	flag.Parse()
+
+	if !*lines && !*words && !*characters {
+		*lines = true
+		*words = true
+		*characters = true
+	}
+
+	filePaths := flag.Args()
+	if len(filePaths) == 0 {
+		c, err := countReader(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "wordcount: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(formatCounts(c, "", *lines, *words, *characters))
+		return
+	}
+
 	hasFailed := false
 	var total counts
-
 	for _, filePath := range filePaths {
 		c, err := countFile(filePath)
 		if err != nil {
@@ -73,12 +115,14 @@ func main() {
 			hasFailed = true
 			continue
 		}
-		fmt.Printf("%d %d %d %s\n", c.Lines, c.Words, c.Characters, filePath)
+		fmt.Println(formatCounts(c, filePath, *lines, *words, *characters))
 		total.add(c)
 	}
+
 	if len(filePaths) > 1 {
-		fmt.Printf("%d %d %d total\n", total.Lines, total.Words, total.Characters)
+		fmt.Println(formatCounts(total, "total", *lines, *words, *characters))
 	}
+
 	if hasFailed {
 		os.Exit(1)
 	}
