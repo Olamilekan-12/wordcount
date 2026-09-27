@@ -57,13 +57,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: wordcount <file>")
 		os.Exit(1)
 	}
-
+	hasFailed := false
 	for _, arg := range args[1:] {
 		c, err := countFile(arg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wordcount: %v\n", err)
-			os.Exit(1)
+			hasFailed = true
+			continue
 		}
 		fmt.Printf("%d %d %d %s\n", c.Lines, c.Words, c.Characters, arg)
+	}
+	if hasFailed {
+		os.Exit(1)
 	}
 }

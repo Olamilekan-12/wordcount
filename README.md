@@ -50,4 +50,3 @@ The counts match `wc -lwm`:
 - No `-l`, `-w`, `-c` flags yet. All three counts are always printed.
 - Can't read from stdin yet.
 - No total line when several files are given.
-- Stops at the first file it can't open instead of continuing with the rest.
